@@ -266,7 +266,11 @@ function cmd_install() {
     local ALIAS="mn$(($(wc -l < $COIN_FOLDER/activemasternode.conf 2>/dev/null || echo 0) + 1))"
     echo "$ALIAS $NEW_KEY" >> $COIN_FOLDER/activemasternode.conf
 
-    # No need to create a new data directory or separate configuration
+    # Ensure the systemd service exists
+    if [ ! -f "/etc/systemd/system/$COIN_SERVICE" ]; then
+        echo "Creating systemd service..."
+        configure_systemd
+    fi
 
     # Restart the daemon to pick up the new masternode
     systemctl restart $COIN_SERVICE
@@ -403,3 +407,4 @@ function main() {
 }
 
 main $@
+
