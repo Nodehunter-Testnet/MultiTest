@@ -247,10 +247,30 @@ function cmd_profadd() {
 function cmd_install() {
     # Install masternode
 
-    if [ ! -f "$COIN_FOLDER/$COIN_CONFIG" ]; then
-        echo -e "$COIN_FOLDER/$COIN_CONFIG file can't be found."
-        echo_json "{\"error\":\"Can't find coin config\",\"errcode\":500}"
-        exit
+    # Ensure masternodeprivkey is set in elysiumroyale.conf
+    local mn_privkey=$(conf_get_value $COIN_FOLDER/$COIN_CONFIG masternodeprivkey)
+    if [[ -z $mn_privkey ]]; then
+        echo "masternodeprivkey not found in $COIN_CONFIG. Generating a dummy key..."
+        # Temporarily remove masternode=1
+        sed -i '/^masternode=1/d' $COIN_FOLDER/$COIN_CONFIG
+        # Start the daemon
+        $EXEC_COIN_DAEMON -daemon -conf=$COIN_FOLDER/$COIN_CONFIG -datadir=$COIN_FOLDER
+        sleep 10
+        # Generate dummy masternodeprivkey
+        DUMMY_KEY=$($EXEC_COIN_CLI createmasternodekey)
+        # Stop the daemon
+        $EXEC_COIN_CLI stop
+        sleep 5
+        # Add masternode=1 and masternodeprivkey back to config
+        echo "masternode=1" >> $COIN_FOLDER/$COIN_CONFIG
+        echo "masternodeprivkey=$DUMMY_KEY" >> $COIN_FOLDER/$COIN_CONFIG
+    fi
+
+    # Ensure the daemon is running
+    if ! pgrep -x "$COIN_DAEMON" > /dev/null; then
+        echo "Starting $COIN_NAME daemon..."
+        $EXEC_COIN_DAEMON -daemon -conf=$COIN_FOLDER/$COIN_CONFIG -datadir=$COIN_FOLDER
+        sleep 10
     fi
 
     if [[ ! $NEW_KEY ]]; then
@@ -407,4 +427,3 @@ function main() {
 }
 
 main $@
-
